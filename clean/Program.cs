@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using static System.Console;
+using static System.IO.SearchOption;
 
 namespace clean
 {
@@ -18,7 +20,7 @@ namespace clean
             var baseDir = new DirectoryInfo(".");
 
             var foldersToDelete = from folderName in folderNames
-                                  from d in baseDir.EnumerateDirectories(folderName, SearchOption.AllDirectories)
+                                  from d in baseDir.EnumerateDirectories(folderName, AllDirectories)
                                   where d.Name.Equals(folderName, StringComparison.InvariantCultureIgnoreCase)
                                   select d;
 
@@ -26,7 +28,7 @@ namespace clean
             {
                 try
                 {
-                    Console.WriteLine(d.FullName);
+                    WriteLine(d.FullName);
                     d.Delete(true);
                 }
                 catch (Exception e)
@@ -41,14 +43,14 @@ namespace clean
         {
             var filesToDelete = 
                 from pattern in searchPatterns
-                from f in d.EnumerateFiles(pattern, SearchOption.AllDirectories)
+                from f in d.EnumerateFiles(pattern, AllDirectories)
                 select f;
 
             foreach (var f in filesToDelete)
             {
                 try
                 {
-                    Console.WriteLine(f.FullName);
+                    WriteLine(f.FullName);
                     f.Delete();
                 }
                 catch (Exception e)
@@ -60,15 +62,15 @@ namespace clean
 
         private static void LogError(string error, Exception e)
         {
-            ConsoleColor c = Console.ForegroundColor;
+            var c = ForegroundColor;
             try
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"{error}: {e.Message}");
+                ForegroundColor = ConsoleColor.Red;
+                WriteLine($"{error}: {e.Message}");
             }
             finally
             {
-                Console.ForegroundColor = c;
+                ForegroundColor = c;
             }
         }
     }
