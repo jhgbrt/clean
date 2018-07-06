@@ -1,76 +1,61 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using static System.Console;
+using static System.IO.Directory;
 using static System.IO.SearchOption;
 
 namespace clean
 {
-    class Program
+    static class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
-            var enumerable = args.Concat(new [] {"bin", "obj", "TestResults", "*.suo"}).ToLookup(x => x.Contains("*"));
-            DeleteDirectories(enumerable[false].ToArray());
-            DeleteFiles(new DirectoryInfo("."), enumerable[true].ToArray());
+            var cd = new DirectoryInfo(GetCurrentDirectory());
+            cd.DeleteDirectories("bin", "obj", "testresults", "packages");
+            cd.DeleteFiles("*.suo", "*.vssscc", "*.user");
         }
 
-        private static void DeleteDirectories(params string[] folderNames)
+        static void DeleteDirectories(this DirectoryInfo dir, params string[] folderNames)
+            => dir.FindDirectories(folderNames).ForEach(d => d.Delete(true), d => d.DeleteFiles("*"));
+
+        static void DeleteFiles(this DirectoryInfo dir, params string[] searchPatterns)
+            => dir.FindFiles(searchPatterns).ForEach(f => f.Delete());
+
+        static IEnumerable<DirectoryInfo> FindDirectories(this DirectoryInfo dir, params string[] folderNames)
+            => dir.EnumerateDirectories("*", AllDirectories).Where(d => folderNames.Contains(d.Name.ToLowerInvariant()));
+
+        static IEnumerable<FileInfo> FindFiles(this DirectoryInfo d, params string[] searchPatterns)
+            => searchPatterns.SelectMany(pattern => d.EnumerateFiles(pattern, AllDirectories));
+
+        static void ForEach<T>(this IEnumerable<T> fileSystemInfos, Action<T> delete, Action<T> onException = null) where T: FileSystemInfo
         {
-            var baseDir = new DirectoryInfo(".");
-
-            var foldersToDelete = from folderName in folderNames
-                                  from d in baseDir.EnumerateDirectories(folderName, AllDirectories)
-                                  where d.Name.Equals(folderName, StringComparison.InvariantCultureIgnoreCase)
-                                  select d;
-
-            foreach (var d in foldersToDelete)
-            {
-                try
-                {
-                    WriteLine(d.FullName);
-                    d.Delete(true);
-                }
-                catch (Exception e)
-                {
-                    LogError($"Error deleting folder '{d.FullName}'", e);
-                    DeleteFiles(d, "*");
-                }
-            }
-        }
-
-        private static void DeleteFiles(DirectoryInfo d, params string[] searchPatterns)
-        {
-            var filesToDelete = 
-                from pattern in searchPatterns
-                from f in d.EnumerateFiles(pattern, AllDirectories)
-                select f;
-
-            foreach (var f in filesToDelete)
+            foreach (var f in fileSystemInfos)
             {
                 try
                 {
                     WriteLine(f.FullName);
-                    f.Delete();
+                    delete(f);
                 }
                 catch (Exception e)
                 {
-                    LogError($"Error deleting file '{f.FullName}'", e);
+                    LogError(f,e);
+                    onException?.Invoke(f);
                 }
             }
         }
 
-        private static void LogError(string error, Exception e)
+        private static void LogError(FileSystemInfo f, Exception e)
         {
-            var c = ForegroundColor;
             try
             {
                 ForegroundColor = ConsoleColor.Red;
-                WriteLine($"{error}: {e.Message}");
+                WriteLine($"Error deleting '{f.FullName}': {e.Message}");
             }
             finally
             {
-                ForegroundColor = c;
+                ResetColor();
             }
         }
     }
